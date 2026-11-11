@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UFO Defender - Made By Abdurrahman Asmar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #050510; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        canvas { display: block; }
+        .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .skill-btn { transition: all 0.2s ease; }
+        .skill-btn:active { transform: scale(0.95); }
+        .skill-btn.cooldown { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between items-center relative overflow-hidden">
+
+    <!-- Top Branding Watermark -->
+    <div class="absolute top-3 z-30 pointer-events-none text-center">
+        <h1 class="text-xl md:text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-yellow-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.8)]">
+            UFO DEFENDER
+        </h1>
+        <p class="text-xs md:text-sm font-semibold tracking-wider text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">
+            Made By Abdurrahman Asmar
+        </p>
+    </div>
+
+    <!-- Active Gameplay HUD -->
+    <div id="hud" class="hidden absolute top-14 left-0 right-0 z-20 px-6 flex justify-between items-center pointer-events-none">
+        <!-- Player Info & Stats -->
+        <div class="glass p-3 rounded-xl flex items-center space-x-4">
+            <div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">Hull Health</div>
+                <div class="w-32 bg-slate-800 rounded-full h-3 border border-slate-700 overflow-hidden mt-1">
+                    <div id="health-bar" class="bg-gradient-to-r from-red-500 via-amber-400 to-emerald-400 h-full transition-all duration-300" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">UFO Level</div>
+                <div id="ufo-level" class="text-lg font-black text-cyan-400">LVL 1</div>
+            </div>
+        </div>
+
+        <!-- Score & Golems -->
+        <div class="glass p-3 rounded-xl text-right flex items-center space-x-6">
+            <div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">Helper Golems</div>
+                <div id="golem-count" class="text-lg font-black text-emerald-400">0 Active</div>
+            </div>
+            <div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-bold">Score</div>
+                <div id="score" class="text-2xl font-black text-yellow-400">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Bar HUD -->
+    <div id="skills-bar" class="hidden absolute bottom-6 z-20 flex space-x-4">
+        <button id="skill-1" onclick="useSkill(0)" class="skill-btn glass px-4 py-2 rounded-xl flex flex-col items-center border-cyan-500/30 hover:border-cyan-400">
+            <span class="text-xs text-slate-400 font-bold">[1] EMP Shock</span>
+            <span class="text-xs text-cyan-300 font-extrabold" id="cd-1">READY</span>
+        </button>
+        <button id="skill-2" onclick="useSkill(1)" class="skill-btn glass px-4 py-2 rounded-xl flex flex-col items-center border-fuchsia-500/30 hover:border-fuchsia-400">
+            <span class="text-xs text-slate-400 font-bold">[2] Shield</span>
+            <span class="text-xs text-fuchsia-300 font-extrabold" id="cd-2">READY</span>
+        </button>
+        <button id="skill-3" onclick="useSkill(2)" class="skill-btn glass px-4 py-2 rounded-xl flex flex-col items-center border-yellow-500/30 hover:border-yellow-400">
+            <span class="text-xs text-slate-400 font-bold">[3] Barrage</span>
+            <span class="text-xs text-yellow-300 font-extrabold" id="cd-3">READY</span>
+        </button>
+    </div>
+
+    <!-- Start Menu Overlay -->
+    <div id="start-screen" class="absolute inset-0 z-30 flex flex-col justify-center items-center bg-slate-950/80 backdrop-blur-md p-6 text-center">
+        <h2 class="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-yellow-400 mb-2">
+            UFO DEFENDER
+        </h2>
+        <p class="text-cyan-400 font-bold tracking-widest text-lg mb-6">Made By Abdurrahman Asmar</p>
+        
+        <div class="glass max-w-md p-6 rounded-2xl mb-8 text-left space-y-3 text-slate-300 text-sm">
+            <p>🛸 <b class="text-white">Defeat Low-Health Mini-Bosses</b> to pick up UFO Cores and level up your weapons!</p>
+            <p>⚡ <b class="text-white">Use 3 Active Skills:</b> EMP Shockwave [1], Energy Shield [2], and Plasma Barrage [3].</p>
+            <p>🗿 <b class="text-white">Collect Hidden Relics</b> to summon loyal Helper Golems that auto-shoot enemies & shield you!</p>
+            <p>🕹️ <b class="text-white">Controls:</b> WASD / Arrows / Touch to Move. Space / Click / Auto to Fire.</p>
+        </div>
+
+        <button onclick="startGame()" class="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-lg rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.5)] transform hover:scale-105 transition">
+            START GAME
+        </button>
+    </div>
+
+    <!-- Game Over Screen Overlay -->
+    <div id="game-over-screen" class="hidden absolute inset-0 z-30 flex flex-col justify-center items-center bg-slate-950/90 backdrop-blur-md p-6 text-center">
+        <h2 class="text-5xl font-black text-red-500 mb-2 drop-shadow-[0_0_15px_rgba(239,68,68,0.7)]">GAME OVER</h2>
+        <p class="text-cyan-400 font-bold tracking-widest mb-6">Made By Abdurrahman Asmar</p>
+        <p class="text-slate-400 text-sm mb-1 uppercase tracking-wider">Final Score</p>
+        <div id="final-score" class="text-4xl font-black text-yellow-400 mb-8">0</div>
+        
+        <button onclick="startGame()" class="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-lg rounded-xl shadow-[0_0_20px_rgba(6,182,212,0.5)] transform hover:scale-105 transition">
+            PLAY AGAIN
+        </button>
+    </div>
+
+    <!-- HTML5 Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Sound Effects with Tone.js
+        let synth, noiseSynth;
+        function initAudio() {
+            if (!synth) {
+                synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                synth.volume.value = -12;
+                noiseSynth = new Tone.NoiseSynth({
+                    noise: { type: 'white' },
+                    envelope: { attack: 0.005, decay: 0.2, sustain: 0 }
+                }).toDestination();
+                noiseSynth.volume.value = -16;
+            }
+        }
+
+        function playShootSound() {
+            if (synth) synth.triggerAttackRelease("C5", "16n");
+        }
+        function playExplodeSound() {
+            if (noiseSynth) noiseSynth.triggerAttackRelease("16n");
+        }
+        function playUpgradeSound() {
+            if (synth) synth.triggerAttackRelease(["E5", "G5", "B5"], "8n");
+        }
+
+        // Game State Variables
+        let gameState = 'START';
+        let score = 0;
+        let player;
+        let enemies = [];
+        let bullets = [];
+        let enemyBullets = [];
+        let particles = [];
+        let items = [];
+        let golems = [];
+        let keys = {};
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height - 100;
+        let lastBossTime = Date.now();
+        let lastItemTime = Date.now();
+
+        // Skill Cooldowns (in seconds)
+        const skills = [
+            { name: 'EMP', cd: 10, lastUsed: 0 },
+            { name: 'Shield', cd: 15, lastUsed: 0 },
+            { name: 'Barrage', cd: 12, lastUsed: 0 }
+        ];
+
+        class Player {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = canvas.height - 120;
+                this.radius = 24;
+                this.speed = 7;
+                this.health = 100;
+                this.maxHealth = 100;
+                this.level = 1;
+                this.lastShoot = 0;
+                this.shieldActive = false;
+                this.shieldTimer = 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Shield Effect
+                if (this.shieldActive) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 15, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(217, 70, 239, 0.25)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#d946ef';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#d946ef';
+                    ctx.stroke();
+                }
+
+                // Dynamic UFO Design based on Level
+                let glowColor = this.level >= 3 ? '#facc15' : this.level === 2 ? '#38bdf8' : '#22d3ee';
+
+                // Outer Ring
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.radius + 10, this.radius / 2 + 4, 0, 0, Math.PI * 2);
+                ctx.fillStyle = glowColor;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = glowColor;
+                ctx.fill();
+
+                // Main Hull
+                ctx.beginPath();
+                ctx.ellipse(0, 2, this.radius, this.radius / 2, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Cockpit Dome
+                ctx.beginPath();
+                ctx.arc(0, -4, this.radius / 2.2, Math.PI, 0);
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            update() {
+                if (keys['KeyA'] || keys['ArrowLeft']) this.x -= this.speed;
+                if (keys['KeyD'] || keys['ArrowRight']) this.x += this.speed;
+                if (keys['KeyW'] || keys['ArrowUp']) this.y -= this.speed;
+                if (keys['KeyS'] || keys['ArrowDown']) this.y += this.speed;
+
+                // Mouse/Touch follow soft drag
+                if (keys['MouseDown']) {
+                    this.x += (mouseX - this.x) * 0.1;
+                    this.y += (mouseY - this.y) * 0.1;
+                }
+
+                // Boundaries
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+
+                // Shield timer
+                if (this.shieldActive && Date.now() > this.shieldTimer) {
+                    this.shieldActive = false;
+                }
+
+                // Auto Shooting
+                if (Date.now() - this.lastShoot > (this.level >= 3 ? 120 : 180)) {
+                    this.shoot();
+                    this.lastShoot = Date.now();
+                }
+            }
+
+            shoot() {
+                playShootSound();
+                if (this.level === 1) {
+                    bullets.push(new Bullet(this.x, this.y - 20, 0, -12, false));
+                } else if (this.level === 2) {
+                    bullets.push(new Bullet(this.x - 12, this.y - 15, 0, -12, false));
+                    bullets.push(new Bullet(this.x + 12, this.y - 15, 0, -12, false));
+                } else {
+                    bullets.push(new Bullet(this.x - 15, this.y - 10, -2, -12, false));
+                    bullets.push(new Bullet(this.x, this.y - 20, 0, -12, false));
+                    bullets.push(new Bullet(this.x + 15, this.y - 10, 2, -12, false));
+                }
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, vx, vy, isEnemy = false) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.radius = isEnemy ? 5 : 4;
+                this.isEnemy = isEnemy;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.isEnemy ? '#ef4444' : '#38bdf8';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.isEnemy ? '#ef4444' : '#38bdf8';
+                ctx.fill();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+
+        class Enemy {
+            constructor(isBoss = false) {
+                this.isBoss = isBoss;
+                this.radius = isBoss ? 40 : 18;
+                this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+                this.y = -this.radius * 2;
+                this.speed = isBoss ? 1.5 : (Math.random() * 2 + 2);
+                // Low health bosses so player can kill easily!
+                this.health = isBoss ? 15 : 2;
+                this.maxHealth = this.health;
+                this.lastShoot = 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                if (this.isBoss) {
+                    // Low Health Mini Boss Drawing
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#dc2626';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#f87171';
+                    ctx.fill();
+
+                    // Boss Health Bar
+                    ctx.fillStyle = '#475569';
+                    ctx.fillRect(-25, -50, 50, 6);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-25, -50, (this.health / this.maxHealth) * 50, 6);
+                } else {
+                    // Regular Enemy
+                    ctx.beginPath();
+                    ctx.moveTo(0, this.radius);
+                    ctx.lineTo(-this.radius, -this.radius);
+                    ctx.lineTo(this.radius, -this.radius);
+                    ctx.closePath();
+                    ctx.fillStyle = '#a855f7';
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            update() {
+                this.y += this.speed;
+
+                // Boss firing logic
+                if (this.isBoss && Date.now() - this.lastShoot > 1200) {
+                    enemyBullets.push(new Bullet(this.x, this.y + 30, 0, 5, true));
+                    enemyBullets.push(new Bullet(this.x - 15, this.y + 30, -2, 5, true));
+                    enemyBullets.push(new Bullet(this.x + 15, this.y + 30, 2, 5, true));
+                    this.lastShoot = Date.now();
+                }
+            }
+        }
+
+        class Item {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'CORE' or 'RELIC'
+                this.radius = 12;
+                this.vy = 1.5;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'CORE' ? '#facc15' : '#10b981';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.type === 'CORE' ? '#facc15' : '#10b981';
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.type === 'CORE' ? '⚡' : '🗿', this.x, this.y);
+            }
+
+            update() {
+                this.y += this.vy;
+            }
+        }
+
+        class HelperGolem {
+            constructor(angleOffset) {
+                this.angle = angleOffset;
+                this.orbitRadius = 60;
+                this.lastShoot = 0;
+            }
+
+            update(playerX, playerY) {
+                this.angle += 0.04;
+                this.x = playerX + Math.cos(this.angle) * this.orbitRadius;
+                this.y = playerY + Math.sin(this.angle) * this.orbitRadius;
+
+                // Auto shoot nearest enemy
+                if (Date.now() - this.lastShoot > 400 && enemies.length > 0) {
+                    let target = enemies[0];
+                    let dx = target.x - this.x;
+                    let dy = target.y - this.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    bullets.push(new Bullet(this.x, this.y, (dx / dist) * 10, (dy / dist) * 10, false));
+                    this.lastShoot = Date.now();
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#10b981';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#10b981';
+                ctx.fill();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.alpha = 1;
+                this.radius = Math.random() * 3 + 1;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.03;
+            }
+        }
+
+        // Skill Handlers
+        function useSkill(index) {
+            if (gameState !== 'PLAYING') return;
+            let now = Date.now();
+            let skill = skills[index];
+            if (now - skill.lastUsed < skill.cd * 1000) return;
+
+            skill.lastUsed = now;
+
+            if (index === 0) { // EMP
+                enemyBullets = [];
+                enemies.forEach(e => {
+                    e.health -= 5;
+                    createParticles(e.x, e.y, '#22d3ee', 10);
+                });
+            } else if (index === 1) { // Shield
+                player.shieldActive = true;
+                player.shieldTimer = Date.now() + 5000;
+            } else if (index === 2) { // Plasma Barrage
+                for (let a = -Math.PI / 3; a <= Math.PI / 3; a += Math.PI / 15) {
+                    bullets.push(new Bullet(player.x, player.y - 20, Math.sin(a) * 12, -Math.cos(a) * 12, false));
+                }
+            }
+        }
+
+        function createParticles(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function updateSkillCooldowns() {
+            let now = Date.now();
+            skills.forEach((s, idx) => {
+                let btn = document.getElementById(`skill-${idx + 1}`);
+                let label = document.getElementById(`cd-${idx + 1}`);
+                let remaining = Math.ceil((s.cd * 1000 - (now - s.lastUsed)) / 1000);
+                if (remaining <= 0) {
+                    label.innerText = "READY";
+                    btn.classList.remove('cooldown');
+                } else {
+                    label.innerText = `${remaining}s`;
+                    btn.classList.add('cooldown');
+                }
+            });
+        }
+
+        // Key Listeners
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if (e.code === 'Digit1') useSkill(0);
+            if (e.code === 'Digit2') useSkill(1);
+            if (e.code === 'Digit3') useSkill(2);
+        });
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        window.addEventListener('mousemove', e => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        window.addEventListener('mousedown', () => keys['MouseDown'] = true);
+        window.addEventListener('mouseup', () => keys['MouseDown'] = false);
+
+        window.addEventListener('touchmove', e => {
+            if (e.touches.length > 0) {
+                mouseX = e.touches[0].clientX;
+                mouseY = e.touches[0].clientY;
+                keys['MouseDown'] = true;
+            }
+        });
+        window.addEventListener('touchend', () => keys['MouseDown'] = false);
+
+        function startGame() {
+            initAudio();
+            gameState = 'PLAYING';
+            score = 0;
+            player = new Player();
+            enemies = [];
+            bullets = [];
+            enemyBullets = [];
+            particles = [];
+            items = [];
+            golems = [];
+            lastBossTime = Date.now();
+            lastItemTime = Date.now();
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('skills-bar').classList.remove('hidden');
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('skills-bar').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+        // Main Game Loop
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 'PLAYING') {
+                player.update();
+                player.draw();
+
+                // Update Helper Golems
+                golems.forEach((golem) => {
+                    golem.update(player.x, player.y);
+                    golem.draw();
+                });
+                document.getElementById('golem-count').innerText = `${golems.length} Active`;
+
+                // Spawn regular enemies
+                if (Math.random() < 0.03) {
+                    enemies.push(new Enemy(false));
+                }
+
+                // Spawn low health mini-boss every 12 seconds
+                if (Date.now() - lastBossTime > 12000) {
+                    enemies.push(new Enemy(true));
+                    lastBossTime = Date.now();
+                }
+
+                // Spawn hidden collectible relics periodically
+                if (Date.now() - lastItemTime > 15000) {
+                    items.push(new Item(Math.random() * (canvas.width - 40) + 20, -20, 'RELIC'));
+                    lastItemTime = Date.now();
+                }
+
+                // Update Player Bullets
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    let b = bullets[i];
+                    b.update();
+                    b.draw();
+
+                    if (b.y < -10 || b.x < -10 || b.x > canvas.width + 10 || b.y > canvas.height + 10) {
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+
+                    // Hit enemy test
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        let e = enemies[j];
+                        let dist = Math.hypot(b.x - e.x, b.y - e.y);
+                        if (dist < b.radius + e.radius) {
+                            createParticles(b.x, b.y, '#38bdf8', 4);
+                            e.health--;
+                            bullets.splice(i, 1);
+
+                            if (e.health <= 0) {
+                                createParticles(e.x, e.y, e.isBoss ? '#f87171' : '#a855f7', 15);
+                                playExplodeSound();
+
+                                // Drop UFO Upgrade Core if mini-boss
+                                if (e.isBoss) {
+                                    items.push(new Item(e.x, e.y, 'CORE'));
+                                    score += 200;
+                                } else {
+                                    score += 50;
+                                }
+
+                                enemies.splice(j, 1);
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // Update Enemy Bullets
+                for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                    let eb = enemyBullets[i];
+                    eb.update();
+                    eb.draw();
+
+                    if (eb.y > canvas.height + 10) {
+                        enemyBullets.splice(i, 1);
+                        continue;
+                    }
+
+                    // Check hit with player
+                    let dist = Math.hypot(eb.x - player.x, eb.y - player.y);
+                    if (dist < eb.radius + player.radius) {
+                        enemyBullets.splice(i, 1);
+                        if (!player.shieldActive) {
+                            player.health -= 10;
+                            createParticles(player.x, player.y, '#ef4444', 8);
+                            if (player.health <= 0) gameOver();
+                        }
+                    }
+                }
+
+                // Update Enemies
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    e.update();
+                    e.draw();
+
+                    if (e.y > canvas.height + e.radius) {
+                        enemies.splice(i, 1);
+                        continue;
+                    }
+
+                    // Enemy collide with player
+                    let dist = Math.hypot(e.x - player.x, e.y - player.y);
+                    if (dist < e.radius + player.radius) {
+                        enemies.splice(i, 1);
+                        if (!player.shieldActive) {
+                            player.health -= 20;
+                            createParticles(player.x, player.y, '#ef4444', 12);
+                            if (player.health <= 0) gameOver();
+                        }
+                    }
+                }
+
+                // Update Collectible Items
+                for (let i = items.length - 1; i >= 0; i--) {
+                    let item = items[i];
+                    item.update();
+                    item.draw();
+
+                    let dist = Math.hypot(item.x - player.x, item.y - player.y);
+                    if (dist < item.radius + player.radius) {
+                        playUpgradeSound();
+                        if (item.type === 'CORE') {
+                            player.level = Math.min(4, player.level + 1);
+                            player.health = Math.min(player.maxHealth, player.health + 25);
+                        } else if (item.type === 'RELIC') {
+                            golems.push(new HelperGolem((golems.length * Math.PI) / 2));
+                        }
+                        items.splice(i, 1);
+                    }
+                }
+
+                // Update Particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i];
+                    p.update();
+                    p.draw();
+                    if (p.alpha <= 0) particles.splice(i, 1);
+                }
+
+                // Update UI HUD
+                document.getElementById('score').innerText = score;
+                document.getElementById('health-bar').style.width = `${Math.max(0, player.health)}%`;
+                document.getElementById('ufo-level').innerText = `LVL ${player.level}`;
+                updateSkillCooldowns();
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
